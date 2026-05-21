@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Freshness</title>
+</head>
+<body style="text-align:center; padding:20px; font-family:sans-serif;">
+  <h2>🍎 Fruit Check</h2>
+  <input type="file" accept="image/*" capture="environment" id="cam" style="display:none"/>
+  <button onclick="document.getElementById('cam').click()" style="font-size:20px; padding:15px;">
+    Take Photo
+  </button>
+  <p id="result">Waiting...</p>
+
+  <script>
+    const API_KEY = 'AIzaSyBahTxiHEmAKdZH8qi26EgieQSty4LlSTA';  // ← put your real key here
+    const MODEL = 'gemini-1.5-flash'; // this one works
+
+    document.getElementById('cam').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      document.getElementById('result').innerText = 'Reading...';
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result.split(',')[1];
+        const mime = file.type;
+        document.getElementById('result').innerText = 'Analyzing...';
+
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    { text: 'Is this fruit fresh or rotten? Reply ONLY with one word: fresh or rotten.' },
+                    { inline_data: { mime_type: mime, data: base64 } }
+                  ]
+                }]
+              })
+            }
+          );
+
+          if (!res.ok) {
+            // Show HTTP status if not 200
+            document.getElementById('result').innerText = 'HTTP Error: ' + res.status;
+            const errText = await res.text();
+            console.error(errText);
+            return;
+          }
+
+          const data = await res.json();
+          const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No answer';
+          document.getElementById('result').innerText = 'Result: ' + answer.trim();
+        } catch (err) {
+          document.getElementById('result').innerText = 'Network error: ' + err.message;
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  </script>
+</body>
+</html>
